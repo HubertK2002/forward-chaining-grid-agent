@@ -27,4 +27,4 @@ cmake --preset ninja-debug -DCMAKE_TOOLCHAIN_FILE=C:/path/to/vcpkg/scripts/build
 cmake --build --preset ninja-debug
 ```
 
-Wybór mapy: strzałki i Enter; `G` otwiera ustawienia losowej mapy. W losowej mapie Tab wybiera parametr, strzałki go zmieniają, a Enter rozpoczyna symulację. Podczas symulacji `Space` wykonuje krok, Enter uruchamia/zatrzymuje automatykę, Esc zamyka okno.
+Wybór mapy: strzałki i Enter; `G` otwiera ustawienia losowej mapy. W losowej mapie Tab wybiera parametr, strzałki go zmieniają, a Enter rozpoczyna symulację. Podczas symulacji `Space` wykonuje krok, Enter uruchamia/zatrzymuje automatykę, `M` wraca do wyboru mapy, a Esc zamyka okno.

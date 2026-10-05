@@ -85,7 +85,7 @@ void drawMap(SdlContext& c) {
     int panelX=std::max(mapX+Width*cell+24,windowW-panelW);
     text(c,"PROJECT 1 | AGENT",panelX,28,{115,211,196,255});
     text(c,"A agent   D door   O seen obstacle   ? hidden",panelX,60);
-    text(c,"ENTER run/pause   SPACE step   ESC quit",panelX,88);
+    text(c,"ENTER run/pause   SPACE step   M maps   ESC quit",panelX,88);
     text(c,"Recent observations and inferences",panelX,128,{170,184,204,255});
     const int start=std::max(0,(int)History.size()-18);
     int y=158;
@@ -98,6 +98,7 @@ void drawMap(SdlContext& c) {
     }
     button(c,{panelX,650,132,42},"STEP (SPACE)");
     button(c,{panelX+145,650,132,42},"RUN (ENTER)");
+    button(c,{panelX,704,277,38},"BACK TO MAPS (M)");
 }
 }
 
@@ -170,9 +171,9 @@ MapSelection ChooseMapSourceSDL(const std::string& directory) {
     return {false,files.at(std::clamp(selected,0,(int)files.size()-1)),{}};
 }
 
-void RunAgentSDL() {
+bool RunAgentSDL() {
     SdlContext c("Project 1 — agent simulation",1280,760);
-    bool quit=false,run=false,finished=false;
+    bool quit=false,run=false,finished=false,returnToMaps=false;
     Uint32 last=SDL_GetTicks();
     while(!quit) {
         SDL_Event e;
@@ -180,14 +181,17 @@ void RunAgentSDL() {
             if(e.type==SDL_QUIT) quit=true;
             if(e.type==SDL_KEYDOWN) {
                 if(e.key.keysym.sym==SDLK_ESCAPE)quit=true;
+                if(e.key.keysym.sym==SDLK_m)returnToMaps=true;
                 if(e.key.keysym.sym==SDLK_RETURN)run=!run;
                 if(e.key.keysym.sym==SDLK_SPACE&&!finished) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();}
             }
-            if(e.type==SDL_MOUSEBUTTONDOWN&&e.button.y>640&&!finished) {
-                if(e.button.x>960&&e.button.x<1120) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();}
-                if(e.button.x>=1125) run=!run;
+            if(e.type==SDL_MOUSEBUTTONDOWN&&e.button.y>690&&e.button.x>=960&&e.button.x<1240) returnToMaps=true;
+            if(e.type==SDL_MOUSEBUTTONDOWN&&e.button.y>640&&e.button.y<692&&!finished) {
+                if(e.button.x>960&&e.button.x<1100) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();}
+                if(e.button.x>=1105&&e.button.x<1240) run=!run;
             }
         }
+        if(returnToMaps) return true;
         Uint32 now=SDL_GetTicks();
         if(run&&!finished&&now-last>=500) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();last=now;}
         int w,h; SDL_GetWindowSize(c.window,&w,&h);
@@ -196,4 +200,5 @@ void RunAgentSDL() {
         if(finished) text(c,"MISSION COMPLETE",w-300,h-72,{106,218,156,255});
         present(c.renderer); SDL_Delay(8);
     }
+    return false;
 }

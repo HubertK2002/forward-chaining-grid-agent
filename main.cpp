@@ -14,24 +14,25 @@ int main(int argc, char* argv[]) {
     std::string mapDirectory = "maps";
     if (!std::filesystem::exists(mapDirectory) && argc > 0)
         mapDirectory = (std::filesystem::path(argv[0]).parent_path() / "maps").string();
-    MapSelection mapSelection = ChooseMapSourceSDL(mapDirectory);
-    if (mapSelection.useRandomMap) {
-        GenerateRandomMap(mapSelection.randomParameters);
-    } else {
-        LoadMapFromFile(mapSelection.filename);
-    }
-
-    MakeObservations();
-    RunAgentSDL();
-
-    std::fstream logFile("agent_log.txt");
-    if (logFile.is_open()) {
-        for (const auto& entry : History) {
-            logFile << PrintHistoryEntry(entry).str();
+    bool returnToMaps = true;
+    while (returnToMaps) {
+        History.clear();
+        MapSelection mapSelection = ChooseMapSourceSDL(mapDirectory);
+        if (mapSelection.useRandomMap) {
+            GenerateRandomMap(mapSelection.randomParameters);
+        } else {
+            LoadMapFromFile(mapSelection.filename);
         }
-        logFile.close();
-    } else {
-        std::cerr << "Unable to open log file for writing.\n";
+
+        MakeObservations();
+        returnToMaps = RunAgentSDL();
+
+        std::ofstream logFile("agent_log.txt", std::ios::trunc);
+        if (logFile.is_open()) {
+            for (const auto& entry : History) logFile << PrintHistoryEntry(entry).str();
+        } else {
+            std::cerr << "Unable to open log file for writing.\n";
+        }
     }
     return 0;
     } catch (const std::exception& e) {

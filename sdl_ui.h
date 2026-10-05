@@ -5,4 +5,5 @@
 #include <string>
 
 MapSelection ChooseMapSourceSDL(const std::string& directory);
-void RunAgentSDL();
+// Returns true when the user asks to return to map selection.
+bool RunAgentSDL();
