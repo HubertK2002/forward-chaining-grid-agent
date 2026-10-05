@@ -5,139 +5,23 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
-#include <limits>
 #include <random>
 #include <stdexcept>
 
 namespace {
-int ReadIntInRange(const std::string& prompt, int minValue, int maxValue) {
-    int value = 0;
-
-    while (true) {
-        std::cout << prompt;
-        std::cin >> value;
-
-        if (!std::cin.fail() && value >= minValue && value <= maxValue) {
-            return value;
-        }
-
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << "Invalid value. Expected range " << minValue << "-" << maxValue << ".\n";
-    }
-}
-
-bool ReadYesNo(const std::string& prompt) {
-    char answer = '\0';
-
-    while (true) {
-        std::cout << prompt;
-        std::cin >> answer;
-
-        if (answer == 'y' || answer == 'Y') {
-            return true;
-        }
-
-        if (answer == 'n' || answer == 'N') {
-            return false;
-        }
-
-        std::cout << "Please answer y/n.\n";
-    }
-}
-
 std::mt19937& GetRandomEngine() {
     static std::mt19937 engine(std::random_device{}());
     return engine;
-}
-
-int DrawInt(int minValue, int maxValue) {
-    std::uniform_int_distribution<int> distribution(minValue, maxValue);
-    return distribution(GetRandomEngine());
-}
-
-int DrawObstacleProbability() {
-    static const int probabilities[] = {10, 50, 70, 90};
-    std::uniform_int_distribution<int> distribution(0, 3);
-    return probabilities[distribution(GetRandomEngine())];
-}
-
-RandomMapParameters ChooseRandomMapParameters() {
-    RandomMapParameters parameters{};
-    bool randomizeParameters = ReadYesNo("Randomize map parameters? (y/n): ");
-
-    if (randomizeParameters) {
-        parameters.height = DrawInt(3, 7);
-        parameters.width = DrawInt(7, 20);
-        parameters.agentPosition = {0, DrawInt(0, parameters.height - 1)};
-        parameters.doorPosition = {parameters.width - 1, DrawInt(0, parameters.height - 1)};
-        parameters.obstacleProbabilityPercent = DrawObstacleProbability();
-        return parameters;
-    }
-
-    parameters.height = ReadIntInRange("Map height (3-7): ", 3, 7);
-    parameters.width = ReadIntInRange("Map width (7-20): ", 7, 20);
-    parameters.agentPosition = {
-        0,
-        ReadIntInRange("Agent start row y (0-" + std::to_string(parameters.height - 1) + "): ", 0, parameters.height - 1)
-    };
-    parameters.doorPosition = {
-        parameters.width - 1,
-        ReadIntInRange("Door row y (0-" + std::to_string(parameters.height - 1) + "): ", 0, parameters.height - 1)
-    };
-    parameters.obstacleProbabilityPercent = ReadIntInRange("Obstacle probability in percent (10-90): ", 10, 90);
-    return parameters;
 }
 }
 
 std::vector<std::string> GetMapFiles(const std::string& directory) {
     std::vector<std::string> files;
-
     for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-        if (entry.is_regular_file()) {
-            files.push_back(entry.path().string());
-        }
+        if (entry.is_regular_file()) files.push_back(entry.path().string());
     }
-
     std::sort(files.begin(), files.end());
     return files;
-}
-
-MapSelection ChooseMapSource(const std::string& directory) {
-    std::vector<std::string> files = GetMapFiles(directory);
-    int randomMapMenuNumber = static_cast<int>(files.size()) < 9 ? 9 : static_cast<int>(files.size()) + 1;
-
-    std::cout << "Available maps:\n";
-    for (int i = 0; i < static_cast<int>(files.size()); i++) {
-        std::cout << i + 1 << ". " << std::filesystem::path(files[i]).filename().string() << '\n';
-    }
-    std::cout << randomMapMenuNumber << ". Random map\n";
-
-    int choice = 0;
-    while (true) {
-        std::cout << "Choose map number: ";
-        std::cin >> choice;
-
-        if (!std::cin.fail() &&
-            ((choice >= 1 && choice <= static_cast<int>(files.size())) || choice == randomMapMenuNumber)) {
-            break;
-        }
-
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << "Invalid choice.\n";
-    }
-
-    if (choice == randomMapMenuNumber) {
-        return {true, "", ChooseRandomMapParameters()};
-    }
-
-    if (files.empty()) {
-        throw std::runtime_error("No map files found in directory: " + directory);
-    }
-
-    return {false, files[choice - 1], {}};
 }
 
 void LoadMapFromFile(const std::string& filename) {

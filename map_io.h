@@ -20,6 +20,5 @@ struct MapSelection {
 };
 
 std::vector<std::string> GetMapFiles(const std::string& directory);
-MapSelection ChooseMapSource(const std::string& directory);
 void LoadMapFromFile(const std::string& filename);
 void GenerateRandomMap(const RandomMapParameters& parameters);
