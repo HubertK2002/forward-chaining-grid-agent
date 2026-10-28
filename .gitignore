@@ -2,3 +2,7 @@
 /build-web/
 /cmake-build-*/
 /agent_log.txt
+/*.exe
+/*.zip
+/Raport_koncowy*.docx
+/rapport_tmp.txt
