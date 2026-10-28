@@ -6,6 +6,9 @@
 
 #include <SDL.h>
 #include <SDL_ttf.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include <algorithm>
 #include <filesystem>
@@ -27,9 +30,13 @@ struct SdlContext {
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if (!window || !renderer) throw std::runtime_error(SDL_GetError());
         const char* paths[] = {
+#ifdef __EMSCRIPTEN__
+            "/fonts/DejaVuSans.ttf"
+#else
             "C:/Windows/Fonts/consola.ttf", "C:/Windows/Fonts/arial.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"
+#endif
         };
         for (const char* path : paths) if (std::filesystem::exists(path)) {
             font = TTF_OpenFont(path, 16);
@@ -62,7 +69,7 @@ void button(SdlContext& c, SDL_Rect rect, const char* label, bool active=false) 
 void present(SDL_Renderer* r) { SDL_RenderPresent(r); }
 void begin(SDL_Renderer* r) { color(r,{17,22,30,255}); SDL_RenderClear(r); }
 
-void drawMap(SdlContext& c) {
+void drawMap(SdlContext& c, const std::vector<Position>& visitedTrail) {
     SDL_Renderer* r=c.renderer;
     int windowW=960, windowH=720;
     const int panelW=320, pad=28;
@@ -75,6 +82,8 @@ void drawMap(SdlContext& c) {
         SDL_Color fill{34,43,55,255};
         if(Obstacles[y][x]) fill=ObstaclesObserved[y][x] ? SDL_Color{201,116,65,255} : SDL_Color{74,81,91,255};
         if(DoorPosition.x==x&&DoorPosition.y==y) fill={54,157,115,255};
+        const bool visited=std::any_of(visitedTrail.begin(),visitedTrail.end(),[&](const Position& p){return p.x==x&&p.y==y;});
+        if(visited&&!Obstacles[y][x]&&!(DoorPosition.x==x&&DoorPosition.y==y)) fill={43,91,108,255};
         if(IsAgentAtPosition(x,y)) fill={70,154,220,255};
         color(r,fill); SDL_RenderFillRect(r,&cellRect);
         color(r,{53,64,79,255}); SDL_RenderDrawRect(r,&cellRect);
@@ -85,10 +94,11 @@ void drawMap(SdlContext& c) {
     int panelX=std::max(mapX+Width*cell+24,windowW-panelW);
     text(c,"PROJECT 1 | AGENT",panelX,28,{115,211,196,255});
     text(c,"A agent   D door   O seen obstacle   ? hidden",panelX,60);
-    text(c,"ENTER run/pause   SPACE step   M maps   ESC quit",panelX,88);
-    text(c,"Recent observations and inferences",panelX,128,{170,184,204,255});
+    text(c,"Blue-green: path already travelled",panelX,83,{105,190,205,255});
+    text(c,"ENTER run/pause   SPACE step   M maps   ESC quit",panelX,107);
+    text(c,"Recent observations and inferences",panelX,141,{170,184,204,255});
     const int start=std::max(0,(int)History.size()-18);
-    int y=158;
+    int y=171;
     for(int i=start;i<(int)History.size();++i) {
         std::string line="["+History[i].kind+"] ";
         if(!History[i].premises.empty()) line+=History[i].premises.front()+" -> ";
@@ -163,7 +173,12 @@ MapSelection ChooseMapSourceSDL(const std::string& directory) {
             }
             button(c,{36,300,280,46},"GENERATE AND START");
         }
-        present(c.renderer); SDL_Delay(16);
+        present(c.renderer);
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(16);
+#else
+        SDL_Delay(16);
+#endif
     }
     if(quit) throw std::runtime_error("Map selection cancelled");
     if(mode==1) { p.doorPosition.x=p.width-1; return {true,"",p}; }
@@ -174,6 +189,14 @@ MapSelection ChooseMapSourceSDL(const std::string& directory) {
 bool RunAgentSDL() {
     SdlContext c("Project 1 — agent simulation",1280,760);
     bool quit=false,run=false,finished=false,returnToMaps=false;
+    std::vector<Position> visitedTrail{AgentPosition};
+    auto advanceStep=[&]() {
+        const Position previous=AgentPosition;
+        MoveAgent();
+        MakeObservations();
+        if(AgentPosition.x!=previous.x||AgentPosition.y!=previous.y) visitedTrail.push_back(AgentPosition);
+        finished=IsAgentAtDoor();
+    };
     Uint32 last=SDL_GetTicks();
     while(!quit) {
         SDL_Event e;
@@ -183,22 +206,27 @@ bool RunAgentSDL() {
                 if(e.key.keysym.sym==SDLK_ESCAPE)quit=true;
                 if(e.key.keysym.sym==SDLK_m)returnToMaps=true;
                 if(e.key.keysym.sym==SDLK_RETURN)run=!run;
-                if(e.key.keysym.sym==SDLK_SPACE&&!finished) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();}
+                if(e.key.keysym.sym==SDLK_SPACE&&!finished) advanceStep();
             }
             if(e.type==SDL_MOUSEBUTTONDOWN&&e.button.y>690&&e.button.x>=960&&e.button.x<1240) returnToMaps=true;
             if(e.type==SDL_MOUSEBUTTONDOWN&&e.button.y>640&&e.button.y<692&&!finished) {
-                if(e.button.x>960&&e.button.x<1100) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();}
+                if(e.button.x>960&&e.button.x<1100) advanceStep();
                 if(e.button.x>=1105&&e.button.x<1240) run=!run;
             }
         }
         if(returnToMaps) return true;
         Uint32 now=SDL_GetTicks();
-        if(run&&!finished&&now-last>=500) {MoveAgent();MakeObservations();finished=IsAgentAtDoor();last=now;}
+        if(run&&!finished&&now-last>=500) {advanceStep();last=now;}
         int w,h; SDL_GetWindowSize(c.window,&w,&h);
         begin(c.renderer);
-        drawMap(c);
+        drawMap(c,visitedTrail);
         if(finished) text(c,"MISSION COMPLETE",w-300,h-72,{106,218,156,255});
-        present(c.renderer); SDL_Delay(8);
+        present(c.renderer);
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(8);
+#else
+        SDL_Delay(8);
+#endif
     }
     return false;
 }

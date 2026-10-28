@@ -1,3 +1,4 @@
 /build/
+/build-web/
 /cmake-build-*/
 /agent_log.txt
